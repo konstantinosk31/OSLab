@@ -1,0 +1,1 @@
+The character 'a' appears 961574 times in file large_input.txt.
