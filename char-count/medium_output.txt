@@ -1,0 +1,1 @@
+The character 'a' appears 976 times in file medium_input.txt.
