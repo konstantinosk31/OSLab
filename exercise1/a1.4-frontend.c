@@ -4,6 +4,9 @@ void startup();
 void handle_frontend_input(int argc, char **argv);
 void parse(char *buff, int *command_id, int *workers);
 void open_dispatcher(int fdr, int argc, char **argv, int *disp_pid, int *pipe_to_disp, int *pipe_from_disp);
+void sighandler(int signum);
+
+int disp_pid, pipe_to_disp, pipe_from_disp;
 
 /*
 argc = 3;
@@ -30,9 +33,17 @@ int main(int argc, char **argv) {
 
     startup();
 
-    int disp_pid, pipe_to_disp, pipe_from_disp;
     open_dispatcher(fdr, argc, argv, &disp_pid, &pipe_to_disp, &pipe_from_disp);
-
+    
+    struct sigaction sa;
+    sa.sa_handler = sighandler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART; /* Restart functions if
+                                 interrupted by handler */
+    if (sigaction(SIGINT, &sa, NULL) == -1) {
+        print(STD_ERR, "Error receiving instruction feedback signal from dispatcher\n.");
+    }
+    
     while(1){
         char buff[1024];
         if(fgets(buff, sizeof(buff), stdin) == NULL){
@@ -42,6 +53,9 @@ int main(int argc, char **argv) {
         int command_id;
         int workers;
         parse(buff, &command_id, &workers);
+
+        
+
         switch (command_id){
         case 0:
             printf("Adding %d workers...\n", workers);
@@ -54,13 +68,20 @@ int main(int argc, char **argv) {
             break;
         case 2:
             printf("Displaying info...\n");
+            workers = 0;
+            write(pipe_to_disp, &workers, sizeof(workers));
             break;
         case 3:
             printf("Displaying progress...\n");
+            workers = MAX_WORKERS + 1;
+            write(pipe_to_disp, &workers, sizeof(workers));
             break;
         default:
             printf("Please enter valid instruction.\n");
             break;
+        }
+        if(kill(disp_pid, SIGUSR1) < 0) {
+            print(STD_ERR, "Error while sending the signal to the dispatcher\n");
         }
     }
 }
@@ -138,6 +159,7 @@ void open_dispatcher(int fdr, int argc, char **argv, int *disp_pid, int *pipe_to
 		perror("fork");
 		exit(1);
 	}
+
 	else if(p == 0){
         if(close(to_disp[1]) == -1){
             print(STD_ERR, "Error closing dispatcher's pipe_from_front write end.\n");
@@ -147,7 +169,7 @@ void open_dispatcher(int fdr, int argc, char **argv, int *disp_pid, int *pipe_to
             print(STD_ERR, "Error closing dispatcher's pipe_to_front read end.\n");
             exit(1);
         }
-        fcntl(to_disp[0], F_SETFD, 0);
+        fcntl(to_disp[0], F_SETFD, 0); //CHECK IF NEEDED
         fcntl(from_disp[1], F_SETFD, 0);
 
 		char *argv2[] = {"./a1.4-dispatcher\0", "", "", "", "", NULL};
@@ -166,4 +188,32 @@ void open_dispatcher(int fdr, int argc, char **argv, int *disp_pid, int *pipe_to
     *disp_pid = p;
     *pipe_to_disp = to_disp[1];
     *pipe_from_disp = from_disp[0];
+}
+
+void sighandler(int signum) {
+    if(signum == SIGUSR1){
+        int pipe_value;
+        read(pipe_from_disp, &pipe_value, sizeof(pipe_value));
+        switch(pipe_value) {
+        case 0:
+            printf("You cannot exceed the maximum number of workers supported by the system (%d)\n", MAX_WORKERS);    
+            break;
+
+        case 1:
+            printf("You cannot remove more workers than you currently use\n");
+            break;
+
+        case 2:
+            printf("ok");
+            break;
+
+        case 3:
+            printf("ok");
+            break;
+
+        default:
+            print(STD_ERR, "Frontend received unrecognised signal from dispatcher.\n");
+            exit(1);
+       }
+    }
 }
