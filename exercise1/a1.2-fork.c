@@ -7,70 +7,10 @@
 #include <sys/types.h>
 #include <fcntl.h>
 
-void argument_handling(int argc, char **argv) {
-    if(argc != 4) {
-        perror("There should be three arguments!! (source file, destination file and character)\n");
-        exit(1);
-    }
-
-    if(strlen(argv[3]) > 1) {
-        perror("You can search for specific characters, not entire strings!!\n");
-        exit(1);
-    }
-}
-
-void print(int fdw, char *buff){
-	size_t idx = 0, len = strlen(buff);
-	ssize_t wcnt;
-	do{
-		wcnt = write(fdw, buff+idx, len-idx);
-		if(wcnt == -1){
-			perror("write\n");
-			exit(1);
-		}
-		idx += wcnt;
-	}while(idx < len);
-}
-
-void child(int *x, int fdr, int fdw, char c2c, char *file_to_write){
-	pid_t mypid = getpid(), parpid = getppid();
-	char buff[1024];
-	snprintf(buff, sizeof(buff), "Hello World!\nMy pid is %d.\nMy parent's pid is %d.\n", mypid, parpid);
-	print(1, buff);
-
-	*x = 42;
-	snprintf(buff, sizeof(buff), "Variable x is %d (child).\n", *x);
-	print(1, buff);
-
-	ssize_t rcnt;
-	int count = 0;
-	while(1) {
-		rcnt = read(fdr, buff, sizeof(buff)-1);
-	    if(rcnt == 0) break; //end of file
-	   	if(rcnt == -1){
-			perror("Failed to read file\n");
-			exit(1);
-		}
-		buff[rcnt] = '\0';
-		for(size_t i = 0; i < rcnt; i++){
-			if(buff[i] == c2c) count++;	
-		}
-	}
-	snprintf(buff, sizeof(buff), "The character '%c' appears %d times in file %s.\n", c2c, count, file_to_write);  	
-	print(fdw, buff);	
-}
-
-void parent(pid_t p, int *x) {
-	char buff[1024];
-   	snprintf(buff, sizeof(buff), "My child's pid is %d.\n", p);		
-	print(1, buff);
-	int status;
-	snprintf(buff, sizeof(buff), "Variable x is %d (parent).\n", *x);
-	print(1, buff);
-	wait(&status);
-	snprintf(buff, sizeof(buff), "Child process %d exited with status %d.\n", p, status);		
-	print(1, buff);
-}
+void argument_handling(int argc, char **argv);
+void print(int fdw, char *buff);
+void child(int *x, int fdr, int fdw, char c2c, char *file_to_write);
+void parent(pid_t p, int *x);
 
 int main(int argc, char **argv) {
 	argument_handling(argc, argv);
@@ -127,4 +67,69 @@ int main(int argc, char **argv) {
 		print(1, buff);
 		exit(0);
 	}
+}
+
+void argument_handling(int argc, char **argv) {
+    if(argc != 4) {
+        perror("There should be three arguments!! (source file, destination file and character)\n");
+        exit(1);
+    }
+
+    if(strlen(argv[3]) > 1) {
+        perror("You can search for specific characters, not entire strings!!\n");
+        exit(1);
+    }
+}
+
+void print(int fdw, char *buff) {
+	size_t idx = 0, len = strlen(buff);
+	ssize_t wcnt;
+	do{
+		wcnt = write(fdw, buff+idx, len-idx);
+		if(wcnt == -1){
+			perror("write\n");
+			exit(1);
+		}
+		idx += wcnt;
+	}while(idx < len);
+}
+
+void child(int *x, int fdr, int fdw, char c2c, char *file_to_write) {
+	pid_t mypid = getpid(), parpid = getppid();
+	char buff[1024];
+	snprintf(buff, sizeof(buff), "Hello World!\nMy pid is %d.\nMy parent's pid is %d.\n", mypid, parpid);
+	print(1, buff);
+
+	*x = 42;
+	snprintf(buff, sizeof(buff), "Variable x is %d (child).\n", *x);
+	print(1, buff);
+
+	ssize_t rcnt;
+	int count = 0;
+	while(1) {
+		rcnt = read(fdr, buff, sizeof(buff)-1);
+	    if(rcnt == 0) break; //end of file
+	   	if(rcnt == -1){
+			perror("Failed to read file\n");
+			exit(1);
+		}
+		buff[rcnt] = '\0';
+		for(size_t i = 0; i < rcnt; i++){
+			if(buff[i] == c2c) count++;	
+		}
+	}
+	snprintf(buff, sizeof(buff), "The character '%c' appears %d times in file %s.\n", c2c, count, file_to_write);  	
+	print(fdw, buff);	
+}
+
+void parent(pid_t p, int *x) {
+	char buff[1024];
+   	snprintf(buff, sizeof(buff), "My child's pid is %d.\n", p);		
+	print(1, buff);
+	int status;
+	snprintf(buff, sizeof(buff), "Variable x is %d (parent).\n", *x);
+	print(1, buff);
+	wait(&status);
+	snprintf(buff, sizeof(buff), "Child process %d exited with status %d.\n", p, status);		
+	print(1, buff);
 }

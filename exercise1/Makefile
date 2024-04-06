@@ -17,13 +17,13 @@ a1.3-comm: a1.3-comm.o
 	$(CC) $(CFLAGS) $^ -o $@ -lm
 
 a1.4-frontend: a1.4-frontend.o util.o config.h
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ -lm
 	
 a1.4-dispatcher: a1.4-dispatcher.o util.o config.h
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ -lm
 	
 a1.4-worker: a1.4-worker.o util.o config.h
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ -lm
 	
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c $<

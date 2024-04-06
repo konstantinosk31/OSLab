@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <math.h>
 #include <stdint.h>
 
 #define STD_IN 0
@@ -16,6 +17,7 @@
 #define MAX_WORKERS 64
 
 int min(int a, int b);
+int max(int a, int b);
 void print(int fdw, char *buff);
 void show_pstree(pid_t p);
 void scan(int fd, char *buff, unsigned int bytes_to_read);

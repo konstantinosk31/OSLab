@@ -7,12 +7,7 @@ int rand1(int a, int b){
 	return a + rand()%(b-a+1);
 }
 
-int main(){
-	long long n = 1.25e8;
-	freopen("test_input.txt", "w", stdout);
-	fork();
-	fork();
-	fork();
+void rand_input(int n){
 	for(long long i = 0ll; i < n; i++){
 		int v = rand1(1, 4 - (i == n-1));
 		char c;
@@ -34,4 +29,16 @@ int main(){
 		}
 		putchar(c);
 	}
+}
+
+void alla(int n){
+	for(long long i = 0ll; i < n; i++){
+		putchar('a');
+	}
+}
+
+int main() {
+	long long n = 1e6;
+	freopen("test_input.txt", "w", stdout);
+	alla(n);
 }

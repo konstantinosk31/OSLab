@@ -4,6 +4,10 @@ int min(int a, int b) {
 	return (a < b ? a : b);
 }
 
+int max(int a, int b) {
+	return (a >= b ? a : b);
+}
+
 void print(int fdw, char *buff){
 	size_t idx = 0, len = strlen(buff);
 	ssize_t wcnt;
