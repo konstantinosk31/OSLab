@@ -27,7 +27,6 @@ int main(int argc, char **argv) {
 	if(signal(SIGUSR1, sighandler) < 0) {
         perror("Could not establish SIGUSR1 handler.\n");
     }
-    
     while(1){
         char buff[1024];
         if(fgets(buff, sizeof(buff), stdin) == NULL){
@@ -154,11 +153,12 @@ void open_dispatcher(int argc, char **argv, int *disp_pid, int *pipe_to_disp, in
         fcntl(to_disp[0], F_SETFD, 0);
         fcntl(from_disp[1], F_SETFD, 0);
 
-		char *argv2[] = {"./a1.4-dispatcher\0", "", "", "",  NULL};
-        for(int i = 1; i < 4; i++) argv2[i] = (char *)malloc(1024);
-        itoa(to_disp[0], argv2[1]);
-        itoa(from_disp[1], argv2[2]);
-        strcpy(argv2[3], argv[2]);
+		char *argv2[] = {"./a1.4-dispatcher\0", "", "", "", "", NULL};
+        for(int i = 1; i < 5; i++) argv2[i] = (char *)malloc(1024);
+        strcpy(argv2[1], argv[1]);
+        itoa(to_disp[0], argv2[2]);
+        itoa(from_disp[1], argv2[3]);
+        strcpy(argv2[4], argv[2]);
 		if(execv(argv2[0], argv2) < 0) {
             print(STD_ERR, "Cannot open the dispatcher!\n");
         }

@@ -38,7 +38,9 @@ void alla(int n){
 }
 
 int main() {
-	long long n = 1e6;
-	freopen("test_input.txt", "w", stdout);
-	alla(n);
+	long long n = 2.5e8;
+	freopen("giant_input.txt", "w", stdout);
+	fork();
+	fork();
+	rand_input(n);
 }

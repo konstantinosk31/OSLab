@@ -6,7 +6,7 @@ void sighandler(int signum);
 int pipe_from_disp, pipe_to_disp;
 
 /*
-argc = 6;
+argc = 7;
 argv =
 {   0: "a1.4worker",
     1: off_t start,
@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     char c2c = argv[5][0];
 	strcpy(file_to_read, argv[6]);
 	int fdr;
-    if((fdr = open(argv[1], O_RDONLY)) == -1){
+    if((fdr = open(file_to_read, O_RDONLY)) == -1){
          print(STD_ERR, "Problem opening file to read\n");
          exit(1);
     }
@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
 			print(STD_ERR, "Failed to read file\n");
 			exit(1);
 		}
-		buff[rcnt] = '\0';
+        buff[rcnt] = '\0';
 		bytes_to_read -= rcnt;
 		for(size_t i = 0; i < rcnt; i++){
 			if(buff[i] == c2c) count++;
@@ -58,8 +58,8 @@ int main(int argc, char **argv) {
 }
 
 void handle_worker_input(int argc, char **argv) {
-    if(argc != 6) {
-        print(STD_ERR, "The number of arguments is wrong!\n");
+    if(argc != 7) {
+        print(STD_ERR, "The number of arguments is wrong! (from worker)\n");
         exit(1);
     }
 
