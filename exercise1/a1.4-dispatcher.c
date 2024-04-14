@@ -65,10 +65,9 @@ void delete_worker(worker *w, int bytes_read) {
 argc = 4;
 argv = {
     0: "a1.4-dispatcher.c",
-    1: int fdr,
-    2: int pipe_from_front,
-    3: int pipe_to_front,
-    4: char c2c
+    1: int pipe_from_front,
+    2: int pipe_to_front,
+    3: char c2c
 };
 */
 
@@ -81,13 +80,6 @@ int main(int argc, char **argv) {
     
     front_pid = getppid();
 
-    /*struct sigaction sa;
-    sa.sa_handler = sighandler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART;
-    if (sigaction(SIGINT, &sa, NULL) == -1) {
-        print(STD_ERR, "Error receiving signal from frontend\n.");
-    }*/
     if(signal(SIGUSR1, sighandler) < 0) {
         perror("Could not establish SIGUSR1 handler.\n");
     }
@@ -145,23 +137,30 @@ int main(int argc, char **argv) {
                         wp->size -= w->bytes_to_read;
                     }
                     else{
-                        //remove_from_worklist(w);
-                        //P--;
+                        remove_from_worklist(w);
+                        P--;
                     }
                 }
             }
         }
     }
-    while(1){usleep(100);}
+	for(worker *w = worker_list; w != NULL; w = w->next){
+		int status;
+		if(w->pid != -2){
+        	waitpid(w->pid, &status, WUNTRACED);
+		}
+		remove_from_worklist(w);
+		P--;
+	}
 }
 
 void handle_dispatcher_input(int argc, char **argv) {
-    if(argc != 5) {
+    if(argc != 4) {
         print(STD_ERR, "The number of arguments is wrong!\n");
         exit(1);
     }
 
-    if(strlen(argv[4]) != 1) {
+    if(strlen(argv[3]) != 1) {
         print(STD_ERR, "You can search for single characters, not entire strings!\n");
         exit(1);
     }
@@ -287,14 +286,13 @@ void create_worker(int fdr, char c2c, worker* w) {
         fcntl(to_worker[0], F_SETFD, 0);
         fcntl(from_worker[1], F_SETFD, 0);
         fcntl(fdr, F_SETFD, 0);
-        char *argv2[] = {"./a1.4-worker\0", "", "", "", "", "", "", NULL};
-        for(int i = 1; i < 7; i++) argv2[i] = (char *)malloc(1024);
-        itoa(fdr, argv2[1]);
-        itoa(w->start, argv2[2]);
-        itoa(w->bytes_to_read, argv2[3]);
-        itoa(to_worker[0], argv2[4]);
-        itoa(from_worker[1], argv2[5]);
-        strcpy(argv2[6], (char[2]){c2c, '\0'});
+        char *argv2[] = {"./a1.4-worker\0", "", "", "", "", "", NULL};
+        for(int i = 1; i < 6; i++) argv2[i] = (char *)malloc(1024);
+        itoa(w->start, argv2[1]);
+        itoa(w->bytes_to_read, argv2[2]);
+        itoa(to_worker[0], argv2[3]);
+        itoa(from_worker[1], argv2[4]);
+        strcpy(argv2[5], (char[2]){c2c, '\0'});
 		if(execv(argv2[0], argv2) < 0) {
             print(STD_ERR, "Cannot create workers!\n");
             exit(1);
