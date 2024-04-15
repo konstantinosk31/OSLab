@@ -96,7 +96,6 @@ int main(int argc, char **argv) {
                     if(status == 0){ //CHECK status
                         bytes_read = w->bytes_to_read;
                         read(w->pipe_from_worker, &cnt, sizeof(cnt)); 
-                        //printf("Worker read %d bytes and found char %d times\n",bytes_read, cnt);
                         bytes_left -= bytes_read;
                         count += cnt;
                     }
@@ -120,7 +119,6 @@ int main(int argc, char **argv) {
                     w->bytes_to_read = min(wp->size, batch_size);
                     if(bytes_left != 0) {
                         create_worker(file_to_read, c2c, w);
-                        //printf("worker %d, bytes_left = %ld\n", w->pid, bytes_left);
                         wp->start += w->bytes_to_read;
                         wp->size -= w->bytes_to_read;
                     }
@@ -140,7 +138,6 @@ int main(int argc, char **argv) {
 		P--;
 	}
     while(1){
-        //printf("Still alive!\n");
         sleep(5);
     };
 }
