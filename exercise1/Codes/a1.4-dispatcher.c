@@ -14,6 +14,7 @@ typedef struct worker_node worker;
 struct workpool_node {
     off_t start;
     int size;
+    int left;
     struct workpool_node *next;
 };
 
@@ -82,48 +83,50 @@ int main(int argc, char **argv) {
     workpool = (work *) malloc(sizeof(work));
     workpool->start = 0;
     workpool->size = size;
+    workpool->left = size;
     workpool->next = NULL;
     workpool_tail = workpool;
     off_t bytes_left = size;
     count = 0;
-    while(bytes_left > 0) {
+    while(bytes_left > 0){
         for(work *wp = workpool; wp != NULL; wp = wp->next) {
-            for(worker *w = worker_list; w != NULL; w = w->next){
-                int status;
-                if(w->pid != -2){ //the worker was running before
-                    waitpid(w->pid, &status, WUNTRACED);
-                    int bytes_read, cnt;
-                    if(status == 0){ //CHECK status
-                        bytes_read = w->bytes_to_read;
-                        read(w->pipe_from_worker, &cnt, sizeof(cnt)); 
-                        bytes_left -= bytes_read;
-                        count += cnt;
-                    }
-                    else { //Worker exited abnormally while potentially having read some bytes
-                        read(w->pipe_from_worker, &bytes_read, sizeof(bytes_read));
+            while(wp->left > 0){
+                for(worker *w = worker_list; w != NULL; w = w->next){
+                    int status;
+                    if(w->pid != -2 && w->bytes_to_read != 0){ //the worker was running before
+                        waitpid(w->pid, &status, WUNTRACED);
+                        size_t bytes_to_read_of_w = 0;
+                        int cnt;
+                        read(w->pipe_from_worker, &bytes_to_read_of_w, sizeof(bytes_to_read_of_w));
                         read(w->pipe_from_worker, &cnt, sizeof(cnt));
+                        size_t bytes_read = w->bytes_to_read - bytes_to_read_of_w;
                         bytes_left -= bytes_read;
                         count += cnt;
-                        P--;
-                        delete_worker(w, bytes_read);
-                        continue;
+                        wp->left -= w->bytes_to_read;
+                        if(bytes_to_read_of_w != 0){//Worker exited abnormally while potentially having read some bytes
+                            P--;
+                            delete_worker(w, bytes_read);
+                            printf("Worker deleted! Bytes read = %ld. New P = %d\n", bytes_read, P);
+                            continue;
+                        }
+                        close(w->pipe_from_worker);
+                        close(w->pipe_to_worker);
                     }
-                    close(w->pipe_from_worker);
-                    close(w->pipe_to_worker);
-                }
-                if(w->removed == 1){
-                    remove_from_worklist(w);
-                }
-                else{
-                    w->start = wp->start;
-                    w->bytes_to_read = min(wp->size, batch_size);
-                    if(bytes_left != 0) {
-                        create_worker(file_to_read, c2c, w);
-                        wp->start += w->bytes_to_read;
-                        wp->size -= w->bytes_to_read;
+                    w->bytes_to_read = 0;
+                    if(w->removed == 1){
+                        remove_from_worklist(w);
                     }
-                    else{
-                        break;
+                    else if(wp->size > 0){
+                        w->start = wp->start;
+                        w->bytes_to_read = min(wp->size, batch_size);
+                        if(bytes_left != 0) {
+                            create_worker(file_to_read, c2c, w);
+                            wp->start += w->bytes_to_read;
+                            wp->size -= w->bytes_to_read;
+                        }
+                        else{
+                            break;
+                        }
                     }
                 }
             }
@@ -239,7 +242,7 @@ void info() {
 void progress() {
     int total_left = 0;
     for(work *wp = workpool; wp != NULL; wp = wp->next){
-        total_left += wp->size;
+        total_left += wp->left;
     }
     int total_read = size - total_left;
     double percentage = (double)total_read/size*100.0;
@@ -303,6 +306,7 @@ void segment_workpool(worker *w, int bytes_read){
     work *p = (work *) malloc(sizeof(work));
     
     p -> size = w -> bytes_to_read - bytes_read;
+    p -> left = p -> size;
     p -> start = w -> start + bytes_read;
     p -> next = NULL;
     
@@ -319,6 +323,7 @@ void remove_from_worklist(worker *w){
         worker_list = NULL;
         worker_tail = NULL;
     }
+    worker_tail->next = NULL;
     if(w->pid > 0) free(w);
     
 }
