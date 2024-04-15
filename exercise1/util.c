@@ -33,6 +33,6 @@ void show_pstree(pid_t p){
     }
 }
 
-void itoa(int num, char* str){
-    snprintf(str, sizeof(str), "%d", num);
+void itoa(int num, char *str){
+    sprintf(str, "%d", num);
 }

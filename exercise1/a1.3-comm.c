@@ -40,6 +40,12 @@ int main(int argc, char **argv) {
 		perror("Stat error\n");
 		exit(1);
 	}
+	if(signal(SIGINT, sigintHandler) < 0){
+		perror("Could not establish SIGINT handler");
+		exit(1);
+	}
+	printf("Initiated SIGINT handler\n");
+	sleep(1); //To be able to test the SIGINT handler
 	off_t size = st.st_size;
 	P = CPUCORES;
 	off_t batch_size = size / P;
@@ -67,16 +73,11 @@ int main(int argc, char **argv) {
 		}
 		idx += bytes_to_read;
 	}
-	if(signal(SIGINT, sigintHandler) < 0){
-		perror("Could not establish SIGINT handler");
-		exit(1);
-	}
 	int status = 0;
 	for(int i = 0; i < P; i++) wait(&status);
 	if(p > 0) {
 		parent(fdw, pfd, argv[3][0], argv[1]);		
 	}
-	
 	close(fdr);
 	close(fdw);
 	for(int i = 0; i < P; ++i) {
@@ -119,7 +120,6 @@ void child(int fdr, off_t start, size_t bytes_to_read, int *pfd, char c2c) { //[
 	int count = 0;
 	char buff[1024];
 	close(pfd[0]);
-
 	while(bytes_to_read) {
 		//start += rcnt;
 		//lseek(fdr, start, SEEK_SET);
@@ -159,6 +159,7 @@ void sigintHandler(int sig_num) {
 		perror("Could not establish SIGINT handler");
 		exit(1);
 	}
+	sleep(1); //To be able to test the SIGINT handler
 	char buff[1024];
 	snprintf(buff, sizeof(buff), "There are %d processes reading the input file in parallel\n", P);
 	print(1, buff);

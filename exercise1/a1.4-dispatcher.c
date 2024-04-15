@@ -25,7 +25,7 @@ void adding_workers(int workers);
 void removing_workers(int workers);
 void info();
 void progress();
-void create_worker(int fdr, char c2c, worker* w);
+void create_worker(char *file_to_read, char c2c, worker* w);
 
 int P = 0;
 int fdr;
@@ -43,7 +43,7 @@ void segment_workpool(worker *w, int bytes_read){
     work *p = (work *) malloc(sizeof(work));
     
     p -> size = w -> bytes_to_read - bytes_read;
-    p -> start = w -> start;
+    p -> start = w -> start + bytes_read;
     p -> next = NULL;
     
     workpool_tail->next = p;
@@ -51,9 +51,16 @@ void segment_workpool(worker *w, int bytes_read){
 }
 
 void remove_from_worklist(worker *w){
-    w->prev->next = w->next;
-    if(w->next == NULL) worker_tail = w->prev;
-    free(w);
+    if(w == NULL) print(STD_ERR, "Tried to delete NULL worker!\n");
+    if(w->prev != NULL && w->next != NULL) w->prev->next = w->next;
+    else if(w->prev != NULL && w->next == NULL) worker_tail = w->prev;
+    else if(w->prev == NULL && w->next != NULL) worker_list = w->next;
+    else if(w->prev == NULL && w->next == NULL){
+        worker_list = NULL;
+        worker_tail = NULL;
+    }
+    if(w->pid > 0) free(w);
+    
 }
 
 void delete_worker(worker *w, int bytes_read) {
@@ -62,10 +69,10 @@ void delete_worker(worker *w, int bytes_read) {
 }
 
 /*
-argc = 4;
+argc = 5;
 argv = {
     0: "a1.4-dispatcher.c",
-    1: int fdr,
+    1: char* file_to_read,
     2: int pipe_from_front,
     3: int pipe_to_front,
     4: char c2c
@@ -74,24 +81,23 @@ argv = {
 
 int main(int argc, char **argv) {
     handle_dispatcher_input(argc, argv);
-    fdr = atoi(argv[1]);
+    char *file_to_read = (char *) malloc(sizeof(argv[1]));
+    strcpy(file_to_read, argv[1]);
     pipe_from_front = atoi(argv[2]);
     pipe_to_front = atoi(argv[3]);
     c2c = argv[4][0];
     
     front_pid = getppid();
 
-    /*struct sigaction sa;
-    sa.sa_handler = sighandler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART;
-    if (sigaction(SIGINT, &sa, NULL) == -1) {
-        print(STD_ERR, "Error receiving signal from frontend\n.");
-    }*/
     if(signal(SIGUSR1, sighandler) < 0) {
         perror("Could not establish SIGUSR1 handler.\n");
     }
 
+    int fdr;
+    if((fdr = open(file_to_read, O_RDONLY)) == -1){
+         print(STD_ERR, "Problem opening file to read\n");
+         exit(1);
+    }
     struct stat st;
 	if(fstat(fdr, &st) < 0){
 		perror("Stat error\n");
@@ -104,30 +110,30 @@ int main(int argc, char **argv) {
     workpool->size = size;
     workpool->next = NULL;
     workpool_tail = workpool;
-    off_t bytes_left = size, idx = 0;
+    off_t bytes_left = size;
     count = 0;
     while(bytes_left > 0) {
         for(work *wp = workpool; wp != NULL; wp = wp->next) {
             for(worker *w = worker_list; w != NULL; w = w->next){
                 int status;
-                if(w->pid != -2){
+                if(w->pid != -2){ //the worker was running before
                     waitpid(w->pid, &status, WUNTRACED);
                     int bytes_read, cnt;
                     if(status == 0){ //CHECK status
                         bytes_read = w->bytes_to_read;
                         read(w->pipe_from_worker, &cnt, sizeof(cnt)); 
-                        printf("Worker read %d bytes and found char %d times\n",bytes_read, cnt);
-
+                        //printf("Worker read %d bytes and found char %d times\n",bytes_read, cnt);
                         bytes_left -= bytes_read;
                         count += cnt;
                     }
-                    else {
+                    else { //Worker exited abnormally while potentially having read some bytes
                         read(w->pipe_from_worker, &bytes_read, sizeof(bytes_read));
                         read(w->pipe_from_worker, &cnt, sizeof(cnt));
                         bytes_left -= bytes_read;
                         count += cnt;
                         P--;
                         delete_worker(w, bytes_read);
+                        continue;
                     }
                     close(w->pipe_from_worker);
                     close(w->pipe_to_worker);
@@ -136,23 +142,33 @@ int main(int argc, char **argv) {
                     remove_from_worklist(w);
                 }
                 else{
-                    w->start = idx;
+                    w->start = wp->start; //IN ABNORMAL EXECUTION THIS SHOULD CHANGE
                     w->bytes_to_read = min(wp->size, batch_size);
                     if(bytes_left != 0) {
-                        create_worker(fdr, c2c, w);
-                        printf("worker %d, bytes_left = %ld\n", w->pid, bytes_left);
-                        idx += w->bytes_to_read;
+                        create_worker(file_to_read, c2c, w);
+                        //printf("worker %d, bytes_left = %ld\n", w->pid, bytes_left);
+                        wp->start += w->bytes_to_read;
                         wp->size -= w->bytes_to_read;
                     }
                     else{
-                        //remove_from_worklist(w);
-                        //P--;
+                        break;
                     }
                 }
             }
         }
     }
-    while(1){usleep(100);}
+	for(worker *w = worker_list; w != NULL; w = w->next){
+		int status;
+		if(w->pid != -2) {
+        	waitpid(w->pid, &status, WUNTRACED);
+		}
+		remove_from_worklist(w);
+		P--;
+	}
+    while(1){
+        //printf("Still alive!\n");
+        sleep(5);
+    };
 }
 
 void handle_dispatcher_input(int argc, char **argv) {
@@ -240,6 +256,7 @@ void removing_workers(int workers){
             w = w->prev;
         }
     }
+    printf("Reducing P by %d\n", workers);
     P -= workers;
 }
 
@@ -264,7 +281,7 @@ void progress() {
     printf("Found character %d times!!!\n", count);
 }
 
-void create_worker(int fdr, char c2c, worker* w) {
+void create_worker(char *file_to_read, char c2c, worker* w) {
     int to_worker[2], from_worker[2];
     pipe(to_worker);
     pipe(from_worker);
@@ -289,12 +306,12 @@ void create_worker(int fdr, char c2c, worker* w) {
         fcntl(fdr, F_SETFD, 0);
         char *argv2[] = {"./a1.4-worker\0", "", "", "", "", "", "", NULL};
         for(int i = 1; i < 7; i++) argv2[i] = (char *)malloc(1024);
-        itoa(fdr, argv2[1]);
-        itoa(w->start, argv2[2]);
-        itoa(w->bytes_to_read, argv2[3]);
-        itoa(to_worker[0], argv2[4]);
-        itoa(from_worker[1], argv2[5]);
-        strcpy(argv2[6], (char[2]){c2c, '\0'});
+        itoa(w->start, argv2[1]);
+        itoa(w->bytes_to_read, argv2[2]);
+        itoa(to_worker[0], argv2[3]);
+        itoa(from_worker[1], argv2[4]);
+        strcpy(argv2[5], (char[2]){c2c, '\0'});
+        strcpy(argv2[6], file_to_read);
 		if(execv(argv2[0], argv2) < 0) {
             print(STD_ERR, "Cannot create workers!\n");
             exit(1);
