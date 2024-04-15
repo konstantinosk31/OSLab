@@ -26,6 +26,9 @@ void removing_workers(int workers);
 void info();
 void progress();
 void create_worker(char *file_to_read, char c2c, worker* w);
+void segment_workpool(worker *w, int bytes_read);
+void remove_from_worklist(worker *w);
+void delete_worker(worker *w, int bytes_read);
 
 int P = 0;
 int fdr;
@@ -38,35 +41,6 @@ worker *worker_tail;
 work *workpool;
 work *workpool_tail;
 int count = 0;
-
-void segment_workpool(worker *w, int bytes_read){
-    work *p = (work *) malloc(sizeof(work));
-    
-    p -> size = w -> bytes_to_read - bytes_read;
-    p -> start = w -> start + bytes_read;
-    p -> next = NULL;
-    
-    workpool_tail->next = p;
-    workpool_tail = p;
-}
-
-void remove_from_worklist(worker *w){
-    if(w == NULL) print(STD_ERR, "Tried to delete NULL worker!\n");
-    if(w->prev != NULL && w->next != NULL) w->prev->next = w->next;
-    else if(w->prev != NULL && w->next == NULL) worker_tail = w->prev;
-    else if(w->prev == NULL && w->next != NULL) worker_list = w->next;
-    else if(w->prev == NULL && w->next == NULL){
-        worker_list = NULL;
-        worker_tail = NULL;
-    }
-    if(w->pid > 0) free(w);
-    
-}
-
-void delete_worker(worker *w, int bytes_read) {
-    segment_workpool(w, bytes_read);
-    remove_from_worklist(w);
-}
 
 /*
 argc = 5;
@@ -326,4 +300,33 @@ void create_worker(char *file_to_read, char c2c, worker* w) {
     w -> pipe_to_worker = to_worker[1];
     w -> pid = p;
     return;
+}
+
+void segment_workpool(worker *w, int bytes_read){
+    work *p = (work *) malloc(sizeof(work));
+    
+    p -> size = w -> bytes_to_read - bytes_read;
+    p -> start = w -> start + bytes_read;
+    p -> next = NULL;
+    
+    workpool_tail->next = p;
+    workpool_tail = p;
+}
+
+void remove_from_worklist(worker *w){
+    if(w == NULL) print(STD_ERR, "Tried to delete NULL worker!\n");
+    if(w->prev != NULL && w->next != NULL) w->prev->next = w->next;
+    else if(w->prev != NULL && w->next == NULL) worker_tail = w->prev;
+    else if(w->prev == NULL && w->next != NULL) worker_list = w->next;
+    else if(w->prev == NULL && w->next == NULL){
+        worker_list = NULL;
+        worker_tail = NULL;
+    }
+    if(w->pid > 0) free(w);
+    
+}
+
+void delete_worker(worker *w, int bytes_read) {
+    segment_workpool(w, bytes_read);
+    remove_from_worklist(w);
 }

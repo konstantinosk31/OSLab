@@ -92,7 +92,7 @@ void startup() {
     "To add workers in your service just type: \"Add: <number of workers to add>\"\n\n"
     "To remove workers from your service just type: \"Remove: <number of workers to remove>\"\n\n"
     "If you want to know more details about your workers just type: \"Info\"\n\n"
-    "To see the progress of the execution of the programm just type: \"Progress\"\n\n");
+    "To see the progress of the execution of the program just type: \"Progress\"\n\n");
     print(STD_OUT, buff);
 }
 
