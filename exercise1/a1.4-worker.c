@@ -1,7 +1,7 @@
 #include "config.h"
 
-void handle_worker_input(int argc, char **argv);
-void sighandler(int signum);
+void handle_worker_input(int argc, char **argv); //assert that input is of correct format
+void sighandler(int signum); //signal handler for SIGUSR1 and SIGKILL
 
 int pipe_from_disp, pipe_to_disp;
 

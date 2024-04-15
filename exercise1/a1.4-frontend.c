@@ -1,10 +1,10 @@
 #include "config.h"
 
-void startup();
-void handle_frontend_input(int argc, char **argv);
-void parse(char *buff, int *command_id, int *workers);
-void open_dispatcher(int argc, char **argv, int *disp_pid, int *pipe_to_disp, int *pipe_from_disp);
-void sighandler(int signum);
+void startup(); //show startup welcome message
+void handle_frontend_input(int argc, char **argv); //assert that input is of correct format
+void parse(char *buff, int *command_id, int *workers); //parse the user instruction
+void open_dispatcher(int argc, char **argv, int *disp_pid, int *pipe_to_disp, int *pipe_from_disp); //create dispatcher process
+void sighandler(int signum); //signal handler for SIGUSR1 and SIGINT
 
 int disp_pid, pipe_to_disp, pipe_from_disp;
 

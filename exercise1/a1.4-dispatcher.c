@@ -19,16 +19,16 @@ struct workpool_node {
 
 typedef struct workpool_node work;
 
-void handle_dispatcher_input(int argc, char **argv);
-void sighandler(int signum);
-void adding_workers(int workers);
-void removing_workers(int workers);
-void info();
-void progress();
-void create_worker(char *file_to_read, char c2c, worker* w);
-void segment_workpool(worker *w, int bytes_read);
-void remove_from_worklist(worker *w);
-void delete_worker(worker *w, int bytes_read);
+void handle_dispatcher_input(int argc, char **argv); //assert that input is of correct format
+void sighandler(int signum); //signal handler for SIGUSR1
+void adding_workers(int workers); //execute add workers command and add them to worker_list
+void removing_workers(int workers); //execute remove workers command and mark them as removed
+void info(); //execute info command
+void progress(); //execute progress command
+void create_worker(char *file_to_read, char c2c, worker* w); //create worker process
+void segment_workpool(worker *w, int bytes_read); //create new work item in case of abnormal termination of worker
+void remove_from_worklist(worker *w); //remove worker from worker_list
+void delete_worker(worker *w, int bytes_read); //abnormal death of worker: segment workpool and remove from worklist
 
 int P = 0;
 int fdr;
