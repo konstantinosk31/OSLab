@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
                     remove_from_worklist(w);
                 }
                 else{
-                    w->start = wp->start; //IN ABNORMAL EXECUTION THIS SHOULD CHANGE
+                    w->start = wp->start;
                     w->bytes_to_read = min(wp->size, batch_size);
                     if(bytes_left != 0) {
                         create_worker(file_to_read, c2c, w);
