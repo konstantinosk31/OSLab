@@ -1,7 +1,7 @@
 #include "config.h"
 
-void handle_worker_input(int argc, char **argv);
-void sighandler(int signum);
+void handle_worker_input(int argc, char **argv); //assert that input is of correct format
+void sighandler(int signum); //signal handler for SIGUSR1 and SIGKILL
 
 int pipe_from_disp, pipe_to_disp;
 
@@ -18,13 +18,20 @@ argv =
 };
 */
 
+size_t bytes_to_read;
+int pipe_to_disp;
+int count;
+
 int main(int argc, char **argv) {
     handle_worker_input(argc, argv);
+    if(signal(SIGTERM, sighandler) < 0){
+        perror("Could not establish SIGTERM handler.\n");
+    }
     char *file_to_read = (char *) malloc(sizeof(argv[1]));
     off_t start = (off_t) atoi(argv[1]);
-    size_t bytes_to_read = (size_t) atoi(argv[2]);
+    bytes_to_read = (size_t) atoi(argv[2]);
     int pipe_from_disp = atoi(argv[3]);
-    int pipe_to_disp = atoi(argv[4]);
+    pipe_to_disp = atoi(argv[4]);
     char c2c = argv[5][0];
 	strcpy(file_to_read, argv[6]);
 	int fdr;
@@ -32,9 +39,8 @@ int main(int argc, char **argv) {
          print(STD_ERR, "Problem opening file to read\n");
          exit(1);
     }
-
     ssize_t rcnt = 0;
-    int count = 0;
+    count = 0;
     char buff[1024];
     while(bytes_to_read) {
         start += rcnt;
@@ -51,6 +57,7 @@ int main(int argc, char **argv) {
 			if(buff[i] == c2c) count++;
 		}
 	}
+    write(pipe_to_disp, &bytes_to_read, sizeof(bytes_to_read));
 	write(pipe_to_disp, &count, sizeof(count));
     close(pipe_from_disp);
     close(pipe_to_disp);
@@ -70,7 +77,7 @@ void handle_worker_input(int argc, char **argv) {
 }
 
 void sighandler(int signum) {
-    if(signal(SIGUSR1, sighandler) < 0) {
+    if(signal(SIGTERM, sighandler) < 0) {
         perror("Could not establish SIGUSR1 handler.\n");
     }
     if(signum == SIGUSR1) {
@@ -89,7 +96,11 @@ void sighandler(int signum) {
 
         }
     }
-    else if(signum == SIGKILL) {
-        //AA
+    else if(signum == SIGTERM) {
+        write(pipe_to_disp, &bytes_to_read, sizeof(bytes_to_read));
+	    write(pipe_to_disp, &count, sizeof(count));
+        close(pipe_from_disp);
+        close(pipe_to_disp);
+        exit(0);
     }
 }

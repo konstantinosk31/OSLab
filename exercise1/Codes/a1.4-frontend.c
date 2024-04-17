@@ -1,10 +1,10 @@
 #include "config.h"
 
-void startup();
-void handle_frontend_input(int argc, char **argv);
-void parse(char *buff, int *command_id, int *workers);
-void open_dispatcher(int argc, char **argv, int *disp_pid, int *pipe_to_disp, int *pipe_from_disp);
-void sighandler(int signum);
+void startup(); //show startup welcome message
+void handle_frontend_input(int argc, char **argv); //assert that input is of correct format
+void parse(char *buff, int *command_id, int *workers); //parse the user instruction
+void open_dispatcher(int argc, char **argv, int *disp_pid, int *pipe_to_disp, int *pipe_from_disp); //create dispatcher process
+void sighandler(int signum); //signal handler for SIGUSR1 and SIGINT
 
 int disp_pid, pipe_to_disp, pipe_from_disp;
 
@@ -92,7 +92,7 @@ void startup() {
     "To add workers in your service just type: \"Add: <number of workers to add>\"\n\n"
     "To remove workers from your service just type: \"Remove: <number of workers to remove>\"\n\n"
     "If you want to know more details about your workers just type: \"Info\"\n\n"
-    "To see the progress of the execution of the programm just type: \"Progress\"\n\n");
+    "To see the progress of the execution of the program just type: \"Progress\"\n\n");
     print(STD_OUT, buff);
 }
 
