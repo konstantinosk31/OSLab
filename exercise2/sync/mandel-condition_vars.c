@@ -14,11 +14,12 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <fcntl.h>
+#include <stdbool.h>
+#include <signal.h>
 
 #include "mandel-lib.h"
 
 #define MANDEL_MAX_ITERATION 100000
-#define NTHREADS 3
 
 /***************************
  * Compile-time parameters *
@@ -49,6 +50,8 @@ double ystep;
  * as an array of x_char color values.
  */
 
+int NTHREADS;
+
 struct thread_info {
     pthread_t thread_id;
     int fd;
@@ -57,6 +60,7 @@ struct thread_info {
 
 pthread_mutex_t mut;
 pthread_cond_t *conds;
+bool *myturn;
 
 void *safe_malloc(size_t size)
 {
@@ -138,22 +142,60 @@ void * compute_and_output_mandel_line(void *arg) //arg: int fd, int line
 	for( ; line < y_chars; line += NTHREADS) {
 
 		compute_mandel_line(line, color_val);
-		printf("line = %d\n", line);
 		pthread_mutex_lock(&mut); //lock mutex
-		printf("line = %d: ENTERED MUTEX\n", line);
 		// wait until previous thread sends signal
-		pthread_cond_wait(&conds[(line)% NTHREADS], &mut);
-		printf("line = %d: ENTERED COND\n", line);
+		while(!myturn[line%NTHREADS]) pthread_cond_wait(&conds[line% NTHREADS], &mut);
+		myturn[line%NTHREADS] = false;
 		output_mandel_line(fd, color_val);
+		myturn[(line+1)%NTHREADS] = true;
         pthread_cond_signal(&conds[(line+1)%NTHREADS]); //send signal to next thread
 		pthread_mutex_unlock(&mut); //unlock mutex
-		printf("line = %d: EXITED MUTEX\n", line);
 	}
 	return NULL;
 }
 
-int main(void)
-{
+int safe_atoi(char *s, int *val){
+	long l;
+	char *endp;
+
+	l = strtol(s, &endp, 10);
+	if (s != endp && *endp == '\0') {
+		*val = l;
+		return 0;
+	} else
+		return -1;
+}
+
+void argument_handling(int argc, char **argv) {
+	if(argc != 2) {
+		perror("There should one argument: the number of threads wanted.\n");
+		exit(1);
+	}
+	if(safe_atoi(argv[1], &NTHREADS) == -1){
+		perror("atoi error!\n");
+		exit(1);
+	}
+	if(NTHREADS <= 0){
+		perror("The number of threads should be a positive integer.\n");
+		exit(1);
+	}
+}
+
+void sigintHandler(int sig_num) {
+	if(signal(SIGINT, sigintHandler) < 0){
+		perror("Could not establish SIGINT handler");
+		exit(1);
+	}
+	reset_xterm_color(1);
+	exit(1);
+}
+
+int main(int argc, char **argv){
+	argument_handling(argc, argv);
+	if(signal(SIGINT, sigintHandler) < 0){
+		perror("Could not establish SIGINT handler");
+		exit(1);
+	}
 	xstep = (xmax - xmin) / x_chars;
 	ystep = (ymax - ymin) / y_chars;
 
@@ -166,8 +208,9 @@ int main(void)
 
     threads = (struct thread_info *) safe_malloc(NTHREADS * sizeof(struct thread_info));
 	conds = (pthread_cond_t* ) safe_malloc(NTHREADS * sizeof(pthread_cond_t));
+	myturn = (bool *) safe_malloc(NTHREADS * sizeof(bool));
 	
-	pthread_cond_signal(&conds[0]);
+	myturn[0] = true;
 
     for(int i = 0; i < NTHREADS; ++i) {
 		threads[i].fd = 1;
