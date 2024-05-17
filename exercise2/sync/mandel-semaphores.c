@@ -14,11 +14,11 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #include "mandel-lib.h"
 
 #define MANDEL_MAX_ITERATION 100000
-#define NTHREADS 3
 
 /***************************
  * Compile-time parameters *
@@ -48,6 +48,8 @@ double ystep;
  * This function computes a line of output
  * as an array of x_char color values.
  */
+
+int NTHREADS;
 
 struct thread_info {
     pthread_t thread_id;
@@ -140,10 +142,51 @@ void * compute_and_output_mandel_line(void *arg) //arg: int fd, int line
 		output_mandel_line(fd, color_val);
 		sem_post(&semaphores[(line + 1)%NTHREADS]); //unlock the next semaphore
 	}
+	return NULL;
 }
 
-int main(void)
-{
+int safe_atoi(char *s, int *val){
+	long l;
+	char *endp;
+
+	l = strtol(s, &endp, 10);
+	if (s != endp && *endp == '\0') {
+		*val = l;
+		return 0;
+	} else
+		return -1;
+}
+
+void argument_handling(int argc, char **argv) {
+	if(argc != 2) {
+		perror("There should one argument: the number of threads wanted.\n");
+		exit(1);
+	}
+	if(safe_atoi(argv[1], &NTHREADS) == -1){
+		perror("atoi error!\n");
+		exit(1);
+	}
+	if(NTHREADS <= 0){
+		perror("The number of threads should be a positive integer.\n");
+		exit(1);
+	}
+}
+
+void sigintHandler(int sig_num) {
+	if(signal(SIGINT, sigintHandler) < 0){
+		perror("Could not establish SIGINT handler");
+		exit(1);
+	}
+	reset_xterm_color(1);
+	exit(1);
+}
+
+int main(int argc, char **argv){
+	argument_handling(argc, argv);
+	if(signal(SIGINT, sigintHandler) < 0){
+		perror("Could not establish SIGINT handler");
+		exit(1);
+	}
 	xstep = (xmax - xmin) / x_chars;
 	ystep = (ymax - ymin) / y_chars;
 

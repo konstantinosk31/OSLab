@@ -144,7 +144,7 @@ void * compute_and_output_mandel_line(void *arg) //arg: int fd, int line
 		compute_mandel_line(line, color_val);
 		pthread_mutex_lock(&mut); //lock mutex
 		// wait until previous thread sends signal
-		while(!myturn[line%NTHREADS]) pthread_cond_wait(&conds[line% NTHREADS], &mut);
+		while(!myturn[line%NTHREADS]) pthread_cond_wait(&conds[line%NTHREADS], &mut);
 		myturn[line%NTHREADS] = false;
 		output_mandel_line(fd, color_val);
 		myturn[(line+1)%NTHREADS] = true;
