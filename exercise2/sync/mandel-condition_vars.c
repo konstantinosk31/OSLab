@@ -45,11 +45,6 @@ const double ymin = -1.0, ymax = 1.0;
 double xstep;
 double ystep;
 
-/*
- * This function computes a line of output
- * as an array of x_char color values.
- */
-
 int NTHREADS;
 
 struct thread_info {
@@ -74,6 +69,11 @@ void *safe_malloc(size_t size)
 
 	return p;
 }
+
+/*
+ * This function computes a line of output
+ * as an array of x_char color values.
+ */
 
 void compute_mandel_line(int line, int color_val[])
 {
