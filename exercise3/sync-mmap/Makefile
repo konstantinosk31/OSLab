@@ -9,13 +9,16 @@ CC = gcc
 CFLAGS = -Wall -O2 -pthread
 LIBS = 
 
-all: mandel-fork
+all: mandel-fork mandel-fork-no_semaphores
 
 
 ## Mandel
 
 mandel-fork: mandel-lib.o mandel-fork.o
 	$(CC) $(CFLAGS) -o mandel-fork mandel-lib.o mandel-fork.o $(LIBS)
+
+mandel-fork-no_semaphores: mandel-lib.o mandel-fork-no_semaphores.o
+	$(CC) $(CFLAGS) -o mandel-fork-no_semaphores mandel-lib.o mandel-fork-no_semaphores.o $(LIBS)
 
 mandel-lib.o: mandel-lib.h mandel-lib.c
 	$(CC) $(CFLAGS) -c -o mandel-lib.o mandel-lib.c $(LIBS)

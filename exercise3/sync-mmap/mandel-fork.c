@@ -12,6 +12,9 @@
 #include <math.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <semaphore.h>
 
 #include "mandel-lib.h"
 
@@ -49,12 +52,6 @@ double ystep;
 
 int NPROCS;
 
-struct proc_info {
-    pthread_t proc_id;
-    int fd;
-    int line;
-}; 
-
 sem_t *semaphores;
 
 /*
@@ -90,6 +87,10 @@ void *safe_shared_malloc(size_t size)
 	}
 
 	return p;
+}
+
+void safe_free(void *ptr, size_t size){
+	if(munmap(ptr, size) == -1) die("munmap error");
 }
 
 /*
@@ -157,8 +158,13 @@ void compute_and_output_mandel_line(int fd, int line)
 	 */
 	int color_val[x_chars];
 
-	compute_mandel_line(line, color_val);
-	output_mandel_line(fd, color_val);
+	for( ; line < y_chars; line += NPROCS) {
+		compute_mandel_line(line, color_val);
+		sem_wait(&semaphores[(line)%NPROCS]); //lock current semaphore
+		output_mandel_line(fd, color_val);
+		sem_post(&semaphores[(line + 1)%NPROCS]); //unlock the next semaphore
+	}
+	safe_free(semaphores, NPROCS*sizeof(sem_t));
 }
 
 /*
@@ -182,7 +188,7 @@ void *create_shared_memory_area(unsigned int numbytes)
 	pages = (numbytes - 1) / get_page_size() + 1;
 
 	/* Create a shared, anonymous mapping for this number of pages */
-	if ((addr = mmap(NULL, pags*, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0)) == MAP_FAILED) {
+	if ((addr = mmap(NULL, pages*get_page_size(), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0)) == MAP_FAILED) {
 		die("mmap error");
 	}
 
@@ -245,13 +251,12 @@ void sigintHandler(int sig_num) {
 	exit(1);
 }
 
-int main(void){
+int main(int argc, char **argv){
 	argument_handling(argc, argv);
 	if(signal(SIGINT, sigintHandler) < 0){
 		perror("Could not establish SIGINT handler");
 		exit(1);
 	}
-	int line;
 
 	xstep = (xmax - xmin) / x_chars;
 	ystep = (ymax - ymin) / y_chars;
@@ -260,46 +265,40 @@ int main(void){
 	 * draw the Mandelbrot Set, one line at a time.
 	 * Output is sent to file descriptor '1', i.e., standard output.
 	 */
-	struct thread_info *procs;
+	pid_t *procs;
 
-    procs = (struct proc_info *) safe_malloc(NPROCS * sizeof(struct proc_info));
+    procs = (pid_t *) safe_malloc(NPROCS * sizeof(pid_t));
     semaphores = (sem_t*) safe_shared_malloc(NPROCS * sizeof(sem_t));
 
-	sem_init(&semaphores[0], 0, 1); //initialize the 0th semaphore to 1
-	
+	if(sem_init(&semaphores[0], 1, 1)) //initialize the 0th semaphore to 1
+		die("semaphore init error");
+
 	for(int i = 1; i < NPROCS; ++i) {
-        int ret = sem_init(&semaphores[i], 0, 0); //and all else to 0
-		if(ret) {
-			perror("Semaphore init");
-			exit(1);
-		}
+        if(sem_init(&semaphores[i], 1, 0)) //and all else to 0
+			die("semaphore init error");
 	}
 
     for(int i = 0; i < NPROCS; ++i) {
-		procs[i].fd = 1;
-		procs[i].line = i;
         pid_t p = fork();
-		if(p == 0)
+		if(p < 0) die("fork error");
+		if(p == 0){
+			compute_and_output_mandel_line(1, i);
+			return 0;
+		}
+		if(p > 0) procs[i] = p;
     }
 
-    for(int i = 0; i < NPROCS; ++i) { //join all threads after their executions
-        int ret = pthread_join(procs[i].proc_id, NULL);
-        if(ret) {
-            perror("pthread_join");
-			exit(1);
-        }
+    for(int i = 0; i < NPROCS; ++i) { //wait for all children
+        int status;
+		if(waitpid(procs[i], &status, WUNTRACED) == -1) die("waitpid error");
     }
 
 	for (int i = 0; i < NPROCS; ++i) { //destroy every semaphore
-		int ret = sem_destroy(&semaphores[i]);
-		if(ret) {
-			perror("Semaphore destroy");
-			exit(1);
-		}
+		if(sem_destroy(&semaphores[i])) die("semaphore destroy error");
 	}
 
 	reset_xterm_color(1);
-	free(procs);
-	free(semaphores); //munmap
+	safe_free(procs, NPROCS*sizeof(pid_t));
+	safe_free(semaphores, NPROCS*sizeof(sem_t));
 	return 0;
 }
